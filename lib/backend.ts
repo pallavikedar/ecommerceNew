@@ -1,4 +1,4 @@
-export const BACKEND_BASE = "http://192.168.1.2:9080/api"
+export const BACKEND_BASE = "http://184.168.123.27:9080/api"
 // If your API is nested (e.g. /api/v1), set it here. Otherwise keep as empty string.
 export const API_PREFIX: string = "" // e.g. "/api/v1"
 

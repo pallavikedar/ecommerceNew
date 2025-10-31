@@ -143,7 +143,7 @@ export default function ProductGrid() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${BACKEND_BASE}/api/product/getAll`)
+    fetch(`${BACKEND_BASE}/product/getAll`)
       .then((res) => res.json())
       .then((data: APIProduct[]) => {
         const formatted = data.map((p) => ({
@@ -167,7 +167,7 @@ export default function ProductGrid() {
   if (products.length === 0) return <div className="p-6 text-center text-gray-500">No products found.</div>
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 p-4">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 p-4">
       {products.map((p) => (
         <ProductCard key={p.id} p={p} />
       ))}

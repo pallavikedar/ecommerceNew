@@ -48,8 +48,14 @@ export default function Sidebar() {
             <NavItem 
               icon={<ShoppingCart size={20} />} 
               label="Products" 
-              active={pathname === "/admin/products"} 
-              href="/admin/products" 
+              active={pathname === "/admin/products/getproduct"} 
+              href="/admin/products/getproduct" 
+            />
+             <NavItem 
+              icon={<ShoppingCart size={20} />} 
+              label="Banners" 
+              active={pathname === "/admin/banner/getbanner"} 
+              href="/admin/banner/getbanner" 
             />
 
             <NavItem 

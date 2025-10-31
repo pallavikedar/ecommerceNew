@@ -62,16 +62,19 @@ import Image from "next/image"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Star, Heart } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 type Product = {
-  id: string
+  id: number
   name: string
   price: number
-  rating: number
+  rating?: number
   image: string
 }
 
 export default function ProductCard({ p }: { p: Product }) {
+  const router = useRouter()
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 18 }}
@@ -79,7 +82,7 @@ export default function ProductCard({ p }: { p: Product }) {
       viewport={{ once: true, margin: "-40px" }}
       transition={{ duration: 0.4, ease: "easeOut" }}
     >
-      <Card className="group relative overflow-hidden">
+      <Card className="group relative overflow-hidden border shadow-sm hover:shadow-md transition-shadow duration-300">
         <button
           aria-label="Add to wishlist"
           className="absolute right-2 top-2 z-10 rounded-full border bg-background/80 p-1.5 backdrop-blur hover:bg-background"
@@ -100,14 +103,22 @@ export default function ProductCard({ p }: { p: Product }) {
         <div className="space-y-1 p-3">
           <div className="line-clamp-1 text-sm font-medium">{p.name}</div>
           <div className="flex items-center gap-1 text-xs opacity-80">
-            <Star className="size-3.5 fill-current" />
+            <Star className="size-3.5 fill-current text-yellow-500" />
             <span>{p.rating ? p.rating.toFixed(1) : "4.0"}</span>
           </div>
           <div className="flex items-center justify-between pt-1">
             <div className="text-sm font-semibold">₹{p.price.toFixed(0)}</div>
-            <Button size="sm" className="transition-transform group-hover:translate-y-[-2px]">
-              Add to Cart
+           
+          </div>
+          <div className="flex items-center justify-between pt-1">
+             <Button
+              size="sm"
+              onClick={() => router.push(`/products/${p.id}`)}
+              className="transition-transform group-hover:translate-y-[-2px]"
+            >
+              View Details
             </Button>
+            <Button size="sm" className="transition-transform group-hover:translate-y-[-2px]"> Add to Cart </Button>
           </div>
         </div>
       </Card>

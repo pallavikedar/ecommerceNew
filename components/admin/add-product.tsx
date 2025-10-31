@@ -627,8 +627,10 @@
 import React, { useState,useEffect } from "react";
 import { toast } from "react-toastify";
 import { BACKEND_BASE } from "@/lib/backend";
+import { useRouter } from "next/navigation";
 
 const AddProduct = () => {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     name: "",
     description: "",

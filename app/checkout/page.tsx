@@ -1,18 +1,41 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { useCart, saveOrder, type Order } from "@/components/site/cart-store"
+import { useCart } from "@/components/site/cart-store"
 import { formatINR } from "@/lib/format"
-import { useState } from "react"
+import { BACKEND_BASE } from "@/lib/backend"
 
 export default function CheckoutPage() {
   const { cart, subtotal, clear } = useCart()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [token, setToken] = useState<string | null>(null)
+
+  const shipping = 99
+  const total = subtotal + shipping
+
+  // ✅ Check userToken on mount
+  useEffect(() => {
+    const userToken = localStorage.getItem("userToken")
+    if (!userToken) {
+      router.push("/login")
+    } else {
+      setToken(userToken)
+    }
+  }, [router])
+
+  if (!token) {
+    return (
+      <main className="container mx-auto px-4 py-10">
+        <p>Checking authentication...</p>
+      </main>
+    )
+  }
 
   if (cart.items.length === 0) {
     return (
@@ -22,41 +45,131 @@ export default function CheckoutPage() {
     )
   }
 
-  const shipping = 99
-  const total = subtotal + shipping
-
-  async function onSubmit(formData: FormData) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setLoading(true)
-    // Simulated payment
-    await new Promise((r) => setTimeout(r, 900))
 
-    const order: Order = {
-      id: `ord_${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      items: cart.items,
-      subtotal,
-      shipping,
-      total,
-      customer: {
-        name: String(formData.get("name") || ""),
-        email: String(formData.get("email") || ""),
-        address: String(formData.get("address") || ""),
-        city: String(formData.get("city") || ""),
-        country: String(formData.get("country") || ""),
-        zip: String(formData.get("zip") || ""),
-      },
+    const formData = new FormData(e.currentTarget)
+    const addressData = {
+      fullName: formData.get("name"),
+      street: formData.get("address"),
+      city: formData.get("city"),
+      state: formData.get("state"),
+      zipCode: formData.get("zip"),
+      country: formData.get("country"),
+      phoneNumber: formData.get("phone"),
     }
 
-    saveOrder(order)
-    clear()
-    router.push(`/success?orderId=${order.id}`)
+    try {
+      // ✅ Step 1: Add Address
+      const addressRes = await fetch(`${BACKEND_BASE}/Address/add`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(addressData),
+      })
+
+      if (addressRes.status === 401) {
+        router.push("/login")
+        return
+      }
+
+      const address = await addressRes.json()
+      const shippingAddressId = address?.id
+
+      // ✅ Step 2: Create Razorpay Order (Backend should return order_id)
+      const orderRes = await fetch(`${BACKEND_BASE}/order/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          amount: total * 100, // Razorpay amount in paise
+          currency: "INR",
+        }),
+      })
+
+      const orderData = await orderRes.json()
+      const razorpayOrderId = orderData.razorpayOrderId
+
+      // ✅ Step 3: Open Razorpay Payment Modal
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: total * 100,
+        currency: "INR",
+        name: "Your Store",
+        description: "Order Payment",
+        order_id: razorpayOrderId,
+        handler: async function (response: any) {
+          // ✅ Step 4: Verify payment
+          const verifyRes = await fetch(`${BACKEND_BASE}/order/verify`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            }),
+          })
+
+          const verifyData = await verifyRes.json()
+
+          if (verifyRes.ok) {
+            // ✅ Step 5: Place the order
+            const placeRes = await fetch(`${BACKEND_BASE}/api/order/place`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                userId: verifyData.userId,
+                shippingAddressId,
+                paymentMethod: "Razorpay",
+                items: cart.items.map((item) => ({
+                  productId: item.product.id,
+                  variantId: item.variant?.id || 0,
+                  quantity: item.quantity,
+                })),
+              }),
+            })
+
+            if (placeRes.ok) {
+              clear()
+              router.push("/success")
+            } else {
+              alert("Failed to place order")
+            }
+          } else {
+            alert("Payment verification failed")
+          }
+        },
+        theme: {
+          color: "#3399cc",
+        },
+      }
+
+      const razorpay = new (window as any).Razorpay(options)
+      razorpay.open()
+    } catch (error) {
+      console.error(error)
+      alert("Something went wrong.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <main className="container mx-auto px-4 py-10">
       <h1 className="text-2xl font-semibold mb-6">Checkout</h1>
 
-      <form action={onSubmit} className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+      <form onSubmit={onSubmit} className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <section className="space-y-4 lg:col-span-2">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
@@ -64,12 +177,12 @@ export default function CheckoutPage() {
               <Input id="name" name="name" required />
             </div>
             <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" name="email" required />
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" name="phone" required />
             </div>
           </div>
           <div>
-            <Label htmlFor="address">Address</Label>
+            <Label htmlFor="address">Street Address</Label>
             <Textarea id="address" name="address" rows={3} required />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -78,13 +191,17 @@ export default function CheckoutPage() {
               <Input id="city" name="city" required />
             </div>
             <div>
-              <Label htmlFor="country">Country</Label>
-              <Input id="country" name="country" required />
+              <Label htmlFor="state">State</Label>
+              <Input id="state" name="state" required />
             </div>
             <div>
               <Label htmlFor="zip">ZIP</Label>
               <Input id="zip" name="zip" required />
             </div>
+          </div>
+          <div>
+            <Label htmlFor="country">Country</Label>
+            <Input id="country" name="country" required />
           </div>
 
           <div className="pt-2">
