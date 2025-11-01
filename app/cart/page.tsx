@@ -237,21 +237,22 @@
 
 
 
-
-
 "use client";
 
 import useSWR from "swr";
 import { BACKEND_BASE } from "@/lib/backend";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { useState, useRef } from "react";
+import { useEffect, useState } from "react";
 
 export default function CartPage() {
-  const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
-  const authHeader = token ? (token.startsWith("Bearer") ? token : `Bearer ${token}`) : "";
-  const updatingRef = useRef(false);
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
+  const authHeader = token
+    ? token.startsWith("Bearer")
+      ? token
+      : `Bearer ${token}`
+    : "";
 
   // ✅ Fetch cart
   const { data, mutate, error, isLoading } = useSWR(
@@ -265,59 +266,58 @@ export default function CartPage() {
     }
   );
 
-  // Normalize items
   const items =
-    data?.items || data?.cartItems || data?.data?.items || (Array.isArray(data) ? data : []) || [];
+    data?.items ||
+    data?.cartItems ||
+    data?.data?.items ||
+    (Array.isArray(data) ? data : []) ||
+    [];
 
   const getVariantId = (item: any) =>
-    item.variant?.id || item.variantId || item.id || item.cartItemId || item.productVariantId;
+    item.variant?.id ||
+    item.variantId ||
+    item.id ||
+    item.cartItemId ||
+    item.productVariantId;
 
-  // ✅ Local quantity state (avoids stale data)
   const [localQty, setLocalQty] = useState<Record<number, number>>({});
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
 
-  // Initialize localQty when data loads
-  if (items.length > 0 && Object.keys(localQty).length === 0) {
-    const map: Record<number, number> = {};
+  // ✅ Initialize local quantities
+  useEffect(() => {
+    if (!items.length) return;
+    const initial: Record<number, number> = {};
     items.forEach((i: any) => {
       const id = getVariantId(i);
-      map[id] = i.quantity || 1;
+      initial[id] = i.quantity || 1;
     });
-    setLocalQty(map);
-  }
+    setLocalQty(initial);
+  }, [data]);
 
-  // ✅ Update quantity
+  // ✅ Update (+1 or -1) — backend handles logic
   const handleUpdate = async (variantId: number, delta: number) => {
     if (!token) return alert("Please login first");
-    if (updatingRef.current) return;
+    if (updatingId) return;
 
-    const current = localQty[variantId] ?? 0;
-    const newQuantity = Math.max(current + delta, 0);
-
-    // Optimistic update immediately
-    setLocalQty((prev) => ({ ...prev, [variantId]: newQuantity }));
-
-    if (newQuantity <= 0) {
-      await handleRemove(variantId, 1);
-      return;
-    }
-
-    updatingRef.current = true;
     setUpdatingId(variantId);
 
     try {
-      const url = `${BACKEND_BASE}/cart/updateQuantity?id=${variantId}&quantity=${newQuantity}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { Authorization: authHeader },
-      });
+      const res = await fetch(
+        `${BACKEND_BASE}/cart/updateQuantity?id=${variantId}&quantity=${delta}`,
+        {
+          method: "POST",
+          headers: { Authorization: authHeader },
+        }
+      );
 
       if (!res.ok) throw new Error(await res.text());
+
+      // Refresh cart from backend after update
       await mutate();
     } catch (err) {
       console.error("❌ Update failed:", err);
       alert("Failed to update quantity");
     } finally {
-      updatingRef.current = false;
       setUpdatingId(null);
     }
   };
@@ -325,24 +325,22 @@ export default function CartPage() {
   // ✅ Remove item
   const handleRemove = async (variantId: number, quantity: number) => {
     if (!token) return alert("Please login first");
-    if (updatingRef.current) return;
-
-    updatingRef.current = true;
     setUpdatingId(variantId);
 
     try {
-      const url = `${BACKEND_BASE}/cart/remove?id=${variantId}&quantity=${quantity}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { Authorization: authHeader },
-      });
+      const res = await fetch(
+        `${BACKEND_BASE}/cart/remove?id=${variantId}&quantity=${quantity}`,
+        {
+          method: "POST",
+          headers: { Authorization: authHeader },
+        }
+      );
       if (!res.ok) throw new Error(await res.text());
       await mutate();
     } catch (err) {
       console.error("❌ Remove failed:", err);
       alert("Failed to remove item");
     } finally {
-      updatingRef.current = false;
       setUpdatingId(null);
     }
   };
@@ -352,7 +350,9 @@ export default function CartPage() {
 
   const total = items.reduce(
     (sum, i) =>
-      sum + (i.price || i.variant?.discountedPrice || 0) * (localQty[getVariantId(i)] || i.quantity || 0),
+      sum +
+      (i.price || i.variant?.discountedPrice || 0) *
+        (localQty[getVariantId(i)] || i.quantity || 0),
     0
   );
 
@@ -377,7 +377,11 @@ export default function CartPage() {
                 >
                   <div className="flex items-center gap-4">
                     <Image
-                      src={item.imageUrl || item.variant?.imageUrls?.[0] || "/placeholder.svg"}
+                      src={
+                        item.imageUrl ||
+                        item.variant?.imageUrls?.[0] ||
+                        "/placeholder.svg"
+                      }
                       alt={item.productName || "Product"}
                       width={80}
                       height={80}
@@ -386,23 +390,40 @@ export default function CartPage() {
                     <div>
                       <p className="font-semibold">{item.productName}</p>
                       <p className="text-sm text-gray-600">
-                        ₹{(item.price || item.variant?.discountedPrice || 0).toFixed(2)}
+                        ₹
+                        {(item.price || item.variant?.discountedPrice || 0).toFixed(
+                          2
+                        )}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <Button variant="outline" disabled={disabled} onClick={() => handleUpdate(variantId, +1)}>
-                      +
-                    </Button>
-
-                    <span className="font-medium w-6 text-center">{quantity}</span>
-
-                    <Button variant="outline" disabled={disabled} onClick={() => handleUpdate(variantId, -1)}>
+                    <Button
+                      variant="outline"
+                      disabled={disabled}
+                      onClick={() => handleUpdate(variantId, -1)}
+                    >
                       -
                     </Button>
 
-                    <Button variant="destructive" disabled={disabled} onClick={() => handleRemove(variantId, quantity)}>
+                    <span className="font-medium w-6 text-center">
+                      {quantity}
+                    </span>
+
+                    <Button
+                      variant="outline"
+                      disabled={disabled}
+                      onClick={() => handleUpdate(variantId, +1)}
+                    >
+                      +
+                    </Button>
+
+                    <Button
+                      variant="destructive"
+                      disabled={disabled}
+                      onClick={() => handleRemove(variantId, quantity)}
+                    >
                       Remove
                     </Button>
                   </div>
@@ -413,11 +434,15 @@ export default function CartPage() {
 
           <div className="flex justify-between items-center border-t pt-6">
             <h2 className="text-xl font-semibold">Total:</h2>
-            <p className="text-2xl font-bold text-primary">₹{total.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-primary">
+              ₹{total.toFixed(2)}
+            </p>
           </div>
 
           <div className="flex justify-end">
-            <Button className="mt-4 px-6 py-2 text-lg">Proceed to Checkout</Button>
+            <Button className="mt-4 px-6 py-2 text-lg">
+              Proceed to Checkout
+            </Button>
           </div>
         </>
       )}
