@@ -105,11 +105,139 @@
 // }
 
 
+// "use client"
+
+// import { useEffect, useState } from "react"
+// import ProductCard from "./product-card"
+// import { BACKEND_BASE } from "@/lib/backend"
+// import { useRouter } from "next/navigation"
+
+// type Variant = {
+//   id: number
+//   color: string
+//   price: number
+//   discountedPrice: number
+//   qty: number
+//   size: string
+//   imageUrls: string[]
+// }
+
+// type APIProduct = {
+//   id: number
+//   name: string
+//   description: string
+//   category: string
+//   pickupLocation: string
+//   variants: Variant[]
+// }
+
+// type Product = {
+//   id: string
+//   name: string
+//   price: number
+//   rating: number
+//   image: string
+//    variants: Variant[]
+// }
+
+// export default function ProductGrid() {
+//   const router = useRouter()
+//   const [products, setProducts] = useState<Product[]>([])
+//   const [loading, setLoading] = useState(true)
+
+//    const handleAddToCart = async (variant: Variant) => {
+//     try {
+//       const token = localStorage.getItem("userToken");
+  
+//       if (!token) {
+//         alert("Please log in to add items to cart.");
+//         router.push("/login");
+//         return;
+//       }
+  
+//       // ✅ Use correct backend URL and payload
+//       const response = await fetch(`${BACKEND_BASE}/cart/add`, {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           Authorization: `Bearer ${token}`,
+//         },
+//         body: JSON.stringify({
+//           variantId: variant.id, // use correct field expected by backend
+//           quantity: 1,
+//         }),
+//       });
+  
+//       if (response.status === 401 || response.status === 403) {
+//         alert("Session expired. Please log in again.");
+//         localStorage.removeItem("userToken");
+//         router.push("/login");
+//         return;
+//       }
+  
+//       const result = await response.json();
+  
+//       if (!response.ok) {
+//         throw new Error(result.message || "Failed to add item to cart");
+//       }
+  
+//       alert("✅ Item added to cart successfully!");
+//     } catch (err: any) {
+//       console.error("❌ Add to cart error:", err);
+//       alert(err.message || "Something went wrong while adding to cart.");
+//     }
+//   };
+//   useEffect(() => {
+//     fetch(`${BACKEND_BASE}/product/getAll`)
+//       .then((res) => res.json())
+//       .then((data: APIProduct[]) => {
+//         const formatted = data.map((p) => ({
+//           id: p.id.toString(),
+//           name: p.name,
+//           price: p.variants[0]?.discountedPrice || p.variants[0]?.price || 0,
+//           rating: Math.random() * 2 + 3, // Fake rating between 3.0–5.0
+//           image: p.variants[0]?.imageUrls?.[0] || "/placeholder.svg",
+//         }))
+//         setProducts(formatted)
+//         setLoading(false)
+//       })
+//       .catch((err) => {
+//         console.error("Error fetching products:", err)
+//         setLoading(false)
+//       })
+//   }, [])
+
+//   if (loading) return <div className="p-6 text-center text-gray-500">Loading products...</div>
+
+//   if (products.length === 0) return <div className="p-6 text-center text-gray-500">No products found.</div>
+
+//   return (
+//     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 p-4">
+//       {products.map((p) => (
+//         <ProductCard key={p.id} p={p}  addtocart={() => handleAddToCart(p.variants[0])}/>
+//       ))}
+//     </div>
+//   )
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
 "use client"
 
 import { useEffect, useState } from "react"
 import ProductCard from "./product-card"
 import { BACKEND_BASE } from "@/lib/backend"
+import { useRouter } from "next/navigation"
 
 type Variant = {
   id: number
@@ -131,27 +259,70 @@ type APIProduct = {
 }
 
 type Product = {
-  id: string
+  id: number
   name: string
   price: number
   rating: number
   image: string
+  variants: Variant[]
 }
 
 export default function ProductGrid() {
+  const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+
+  const handleAddToCart = async (variant: Variant) => {
+    try {
+      const token = localStorage.getItem("userToken")
+
+      if (!token) {
+        alert("Please log in to add items to cart.")
+        router.push("/login")
+        return
+      }
+
+      const body = { variantId: variant.id, quantity: 1 }
+      console.log("🛒 Sending payload:", body)
+
+      const response = await fetch(`${BACKEND_BASE}/cart/add?id=${variant.id}&quantity=1`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      })
+
+      const result = await response.json()
+
+      if (response.status === 401 || response.status === 403) {
+        alert("Session expired. Please log in again.")
+        localStorage.removeItem("userToken")
+        router.push("/login")
+        return
+      }
+
+      if (!response.ok) throw new Error(result.message || "Failed to add item to cart")
+
+      alert("✅ Item added to cart successfully!")
+    } catch (err: any) {
+      console.error("❌ Add to cart error:", err)
+      alert(err.message || "Something went wrong while adding to cart.")
+    }
+  }
 
   useEffect(() => {
     fetch(`${BACKEND_BASE}/product/getAll`)
       .then((res) => res.json())
       .then((data: APIProduct[]) => {
         const formatted = data.map((p) => ({
-          id: p.id.toString(),
+          id: p.id,
           name: p.name,
           price: p.variants[0]?.discountedPrice || p.variants[0]?.price || 0,
-          rating: Math.random() * 2 + 3, // Fake rating between 3.0–5.0
+          rating: Math.random() * 2 + 3,
           image: p.variants[0]?.imageUrls?.[0] || "/placeholder.svg",
+          variants: p.variants || [],
         }))
         setProducts(formatted)
         setLoading(false)
@@ -163,13 +334,16 @@ export default function ProductGrid() {
   }, [])
 
   if (loading) return <div className="p-6 text-center text-gray-500">Loading products...</div>
-
   if (products.length === 0) return <div className="p-6 text-center text-gray-500">No products found.</div>
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 p-4">
       {products.map((p) => (
-        <ProductCard key={p.id} p={p} />
+        <ProductCard
+          key={p.id}
+          p={p}
+          addToCart={() => handleAddToCart(p.variants?.[0])}
+        />
       ))}
     </div>
   )

@@ -244,8 +244,10 @@ import { BACKEND_BASE } from "@/lib/backend";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function CartPage() {
+  const router = useRouter()
   const token =
     typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
   const authHeader = token
@@ -359,7 +361,7 @@ export default function CartPage() {
   return (
     <main className="container mx-auto px-4 py-10 space-y-8">
       <h1 className="text-3xl font-semibold">🛒 Your Cart</h1>
-
+ 
       {items.length === 0 ? (
         <p>Your cart is empty.</p>
       ) : (
@@ -377,9 +379,7 @@ export default function CartPage() {
                 >
                   <div className="flex items-center gap-4">
                     <Image
-                      src={
-                        item.imageUrl ||
-                        item.variant?.imageUrls?.[0] ||
+                      src={item.imageUrls ||
                         "/placeholder.svg"
                       }
                       alt={item.productName || "Product"}
@@ -440,7 +440,19 @@ export default function CartPage() {
           </div>
 
           <div className="flex justify-end">
-            <Button className="mt-4 px-6 py-2 text-lg">
+            <Button  onClick={() => {
+    if (!token) {
+      alert("Please login first");
+      router.push("/login");
+      return;
+    }
+
+    // ✅ Save cart data to sessionStorage
+    sessionStorage.setItem("checkoutData", JSON.stringify(items));
+
+    // ✅ Navigate to checkout
+    router.push("/checkout");
+  }} className="mt-4 px-6 py-2 text-lg">
               Proceed to Checkout
             </Button>
           </div>

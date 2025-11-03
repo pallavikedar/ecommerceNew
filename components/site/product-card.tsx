@@ -55,6 +55,13 @@
 //     </motion.div>
 //   )
 // }
+
+
+
+
+
+
+
 "use client"
 
 import { motion } from "framer-motion"
@@ -64,15 +71,32 @@ import { Button } from "@/components/ui/button"
 import { Star, Heart } from "lucide-react"
 import { useRouter } from "next/navigation"
 
+type Variant = {
+  id: number
+  color: string
+  price: number
+  discountedPrice: number
+  qty: number
+  size: string
+  imageUrls: string[]
+}
+
 type Product = {
   id: number
   name: string
   price: number
   rating?: number
   image: string
+  variants: Variant[]
 }
 
-export default function ProductCard({ p }: { p: Product }) {
+export default function ProductCard({
+  p,
+  addToCart,
+}: {
+  p: Product
+  addToCart: () => void
+}) {
   const router = useRouter()
 
   return (
@@ -106,19 +130,33 @@ export default function ProductCard({ p }: { p: Product }) {
             <Star className="size-3.5 fill-current text-yellow-500" />
             <span>{p.rating ? p.rating.toFixed(1) : "4.0"}</span>
           </div>
+
           <div className="flex items-center justify-between pt-1">
             <div className="text-sm font-semibold">₹{p.price.toFixed(0)}</div>
-           
           </div>
+
           <div className="flex items-center justify-between pt-1">
-             <Button
+            <Button
               size="sm"
               onClick={() => router.push(`/products/${p.id}`)}
               className="transition-transform group-hover:translate-y-[-2px]"
             >
               View Details
             </Button>
-            <Button size="sm" className="transition-transform group-hover:translate-y-[-2px]"> Add to Cart </Button>
+
+            <Button
+              size="sm"
+              onClick={() => {
+                if (p.variants?.length > 0) {
+                  addToCart()
+                } else {
+                  alert("No variant found for this product.")
+                }
+              }}
+              className="transition-transform group-hover:translate-y-[-2px]"
+            >
+              Add to Cart
+            </Button>
           </div>
         </div>
       </Card>

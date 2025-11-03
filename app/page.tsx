@@ -12,7 +12,7 @@ export default function HomePage() {
       <HeroCarousel />
       <section aria-labelledby="categories" className="mx-auto max-w-7xl px-4 py-8 md:py-10">
         <h2 id="categories" className="mb-4 text-pretty text-2xl font-semibold tracking-tight">
-          Shop by Category
+         Categories
         </h2>
         <CategoryStrip />
       </section>
